@@ -1,0 +1,24 @@
+# ingestion/airbyte-values.yaml
+# Helm values for deploying Airbyte locally
+webapp:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: airbyte.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+
+# Reduce resource requirements for local k3d deployment to ensure smooth demo operation
+worker:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+
+server:
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"

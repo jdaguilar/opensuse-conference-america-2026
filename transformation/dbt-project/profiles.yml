@@ -1,0 +1,11 @@
+gharchive:
+  target: dev
+  outputs:
+    dev:
+      type: trino
+      method: none
+      user: admin
+      host: trino-coordinator
+      port: 8080
+      catalog: ozone_iceberg
+      schema: default

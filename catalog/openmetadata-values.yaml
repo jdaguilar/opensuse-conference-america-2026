@@ -1,0 +1,9 @@
+# catalog/openmetadata-values.yaml
+# Helm overrides for OpenMetadata
+
+openmetadata:
+  config:
+    elasticsearch:
+      host: elasticsearch
+    database:
+      host: mysql

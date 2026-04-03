@@ -1,0 +1,25 @@
+# storage/ozone-values.yaml
+# Helm configuration overides to deploy Apache Ozone locally
+
+ozone:
+  om:
+    replicas: 1
+  scm:
+    replicas: 1
+  datanode:
+    replicas: 3
+  s3g:
+    replicas: 1
+    # Important: exposed on port 9878 for the Data Platform
+    service:
+      type: ClusterIP
+      port: 9878
+
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: ozone-recon.localhost
+      paths:
+        - path: /
+          pathType: Prefix

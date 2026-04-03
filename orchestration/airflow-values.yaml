@@ -1,0 +1,15 @@
+# orchestration/airflow-values.yaml
+# Helm overrides for Apache Airflow
+
+executor: "LocalExecutor"
+
+ingress:
+  web:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - name: airflow.localhost
+
+dags:
+  gitSync:
+    enabled: false # For local demo, we'll sync local directory instead
