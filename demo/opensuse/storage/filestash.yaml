@@ -22,7 +22,7 @@ spec:
             - containerPort: 8334
           env:
             - name: S3_ENDPOINT
-              value: "http://ozone-s3g:9878"
+              value: "http://ozone-s3g-rest:9878"
             - name: ADMIN_PASSWORD
               # BCRYPT HASH FOR admin
               value: "$2b$12$bHy0tCbZjCkjPCCodiMO0epdlOvoZie5qHBFZADoBXIRGVSXoXSfy"
