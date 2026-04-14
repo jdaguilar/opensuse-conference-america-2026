@@ -4,9 +4,13 @@
 executor: "LocalExecutor"
 
 ingress:
+  apiServer:
+    enabled: true
+
   web:
     enabled: true
     ingressClassName: traefik
+    
     hosts:
       - name: airflow.localhost
 
