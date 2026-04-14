@@ -1,0 +1,28 @@
+# ingestion/airbyte-values.yaml
+# Helm values for deploying Airbyte locally
+
+global:
+  local: true
+  airbyteUrl: "http://airbyte.localhost"
+
+webapp:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: airbyte.localhost  # Replace with your domain
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: server  # Routes to airbyte-server (UI and API)
+        - path: /connector-builder
+          pathType: Prefix
+          backend: connector-builder-server  # Required for connector builder
+  tls: []
+    # Optionally configure TLS
+    # - secretName: airbyte-tls
+    #   hosts:
+    #     - airbyte.example.com
