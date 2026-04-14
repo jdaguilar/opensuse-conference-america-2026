@@ -1,9 +1,0 @@
-# streaming/kafka-values.yaml
-# Helm overrides for Bitnami Kafka Chart (scaled for local demo)
-
-replicaCount: 1
-zookeeper:
-  replicaCount: 1
-listeners:
-  client:
-    protocol: PLAINTEXT

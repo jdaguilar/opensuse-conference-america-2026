@@ -1,5 +1,0 @@
-# streaming/flink-values.yaml
-# Helm overrides for Flink Kubernetes Operator
-
-webhook:
-  create: false
