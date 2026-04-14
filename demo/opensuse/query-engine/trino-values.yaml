@@ -1,0 +1,55 @@
+# query-engine/trino-values.yaml
+# Helm configuration for Trino querying Apache Iceberg on Ozone
+
+server:
+  workers: 2
+
+additionalCatalogs:
+  ozone_iceberg: |-
+    connector.name=iceberg
+    hive.metastore.uri=thrift://hive-metastore:9083
+    iceberg.file-format=PARQUET
+    # Assuming Ozone S3Gateway is used
+    fs.native-s3.enabled=true
+    s3.endpoint=http://ozone-s3g:9878
+    s3.region=us-east-1
+    s3.path-style-access=true
+
+ingress:
+  enabled: true
+  className: "traefik"
+  hosts:
+     - host: trinodb.localhost
+       paths:
+         - path: /
+           pathType: ImplementationSpecific
+
+  tls:
+    - secretName: chart-example-tls
+      hosts:
+        - trinodb.localhost
+
+additionalConfigProperties:
+  - http-server.process-forwarded=true
+
+# gateway:
+#   enabled: true
+#   parentRefs:
+#     - name: trino-gateway
+#       namespace: gateway-system
+#       sectionName: https
+
+#   hostnames:
+#     - trinodb.localhost
+#     - trinodb-prod.localhost
+
+#   rules:
+#     - path:
+#         type: PathPrefix
+#         value: /
+#       filters:
+#         - type: RequestHeaderModifier
+#           requestHeaderModifier:
+#             set:
+#               - name: X-Forwarded-Proto
+#                 value: https
