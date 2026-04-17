@@ -1,6 +1,5 @@
 from airflow import DAG
 from airflow.decorators import task
-from airflow.utils.dates import days_ago
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.macros import ds_add
 
@@ -15,7 +14,7 @@ BUCKET_NAME = "raw"
 # ---- DAG ----
 with DAG(
     dag_id="gharchive_to_ozone",
-    start_date=days_ago(1),
+    start_date=datetime(2025, 1, 1),
     schedule="0 10 * * *",   # run daily at 10:00
     catchup=False,
     tags=["gharchive"],
