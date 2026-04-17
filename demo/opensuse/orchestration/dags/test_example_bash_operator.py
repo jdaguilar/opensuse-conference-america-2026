@@ -15,14 +15,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.providers.standard.operators.empty import EmptyOperator
-from airflow.utils.dates import days_ago
 
-args = {'owner': 'airflow', 'retries': 3, 'start_date': days_ago(2)}
+args = {'owner': 'airflow', 'retries': 3, 'start_date': datetime(2026, 4, 15)}
 
 dag = DAG(
     dag_id='test_example_bash_operator',
