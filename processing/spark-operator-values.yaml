@@ -1,8 +1,0 @@
-# processing/spark-operator-values.yaml
-# Helm configuration for the Spark on Kubernetes Operator
-
-sparkJobNamespace: "data-processing"
-webhook:
-  enable: true
-metrics:
-  enable: true
