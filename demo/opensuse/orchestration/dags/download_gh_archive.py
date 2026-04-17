@@ -1,11 +1,12 @@
+import os
+import requests
+from datetime import datetime
+
 from airflow import DAG
 from airflow.decorators import task
 from airflow.utils.dates import days_ago
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
-import os
-import requests
-from datetime import datetime
 
 MINIO_PROFILE_NAME = "ozone"  # your Airflow connection ID
 BUCKET_NAME = "raw"
@@ -16,7 +17,7 @@ default_args = {
 
 with DAG(
     dag_id="gharchive_to_ozone",
-    start_date=days_ago(1),
+    start_date=datetime(2026, 1, 1),
     schedule=None,  # trigger manually with date params
     catchup=False,
     default_args=default_args,
