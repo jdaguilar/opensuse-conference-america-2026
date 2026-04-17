@@ -17,7 +17,7 @@ default_args = {
 with DAG(
     dag_id="gharchive_to_ozone",
     start_date=datetime(2026, 1, 1),
-    schedule=None,  # trigger manually with date params
+    schedule="0 10 * * *",
     catchup=False,
     default_args=default_args,
     tags=["gharchive"],
