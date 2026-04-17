@@ -26,7 +26,7 @@ args = {'owner': 'airflow', 'retries': 3, 'start_date': datetime(2026, 4, 15)}
 dag = DAG(
     dag_id='test_example_bash_operator',
     default_args=args,
-    schedule_interval='0 0 * * *',
+    schedule='0 0 * * *',
     dagrun_timeout=timedelta(minutes=60),
 )
 
