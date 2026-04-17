@@ -1,33 +1,38 @@
+from airflow import DAG
+from airflow.decorators import task
+from airflow.utils.dates import days_ago
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.macros import ds_add
+
 import os
 import requests
 from datetime import datetime
 
-from airflow import DAG
-from airflow.decorators import task
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-
-
-MINIO_PROFILE_NAME = "ozone"  # your Airflow connection ID
+# ---- CONFIG ----
+AWS_CONN_ID = "ozone"   # Airflow connection to Ozone S3 gateway
 BUCKET_NAME = "raw"
 
-default_args = {
-    "owner": "data-eng",
-}
-
+# ---- DAG ----
 with DAG(
     dag_id="gharchive_to_ozone",
-    start_date=datetime(2026, 1, 1),
-    schedule="0 10 * * *",
+    start_date=days_ago(1),
+    schedule="0 10 * * *",   # run daily at 10:00
     catchup=False,
-    default_args=default_args,
     tags=["gharchive"],
 ) as dag:
 
+    # ---- Get execution date (yesterday is typical for GH Archive) ----
+    @task
+    def get_date(ds=None):
+        return ds_add(ds, -1)
+
+    # ---- Generate 24 hours ----
     @task
     def generate_hours():
         return list(range(24))
 
-    @task
+    # ---- Process one hour ----
+    @task(retries=1, retry_delay=60)
     def process_hour(date: str, hour: int):
         dt = datetime.strptime(date, "%Y-%m-%d")
         year = dt.strftime("%Y")
@@ -42,19 +47,24 @@ with DAG(
         file_name = f"{date}-{hour}.json.gz"
         local_path = os.path.join(local_folder, file_name)
 
-        # Download
-        r = requests.get(url, stream=True)
-        if r.status_code != 200:
+        # ---- Download ----
+        response = requests.get(url, stream=True)
+        if response.status_code == 404:
+            # GH Archive sometimes misses hours — skip safely
+            print(f"Missing file: {url}")
+            return "missing"
+
+        if response.status_code != 200:
             raise Exception(f"Failed to download {url}")
 
         with open(local_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
+            for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
-        # Upload to Ozone (via S3 API)
+        # ---- Upload to Ozone (S3-compatible) ----
         s3_key = f"gh_archive/year={year}/month={month}/day={day}/hour={hour}/{file_name}"
 
-        hook = S3Hook(aws_conn_id=MINIO_PROFILE_NAME)
+        hook = S3Hook(aws_conn_id=AWS_CONN_ID)
         hook.load_file(
             filename=local_path,
             key=s3_key,
@@ -62,11 +72,16 @@ with DAG(
             replace=True,
         )
 
-        return f"Uploaded {s3_key}"
+        # ---- Cleanup (important in Airflow workers) ----
+        os.remove(local_path)
 
-    # DAG wiring
+        return f"uploaded {s3_key}"
+
+    # ---- DAG wiring ----
+    date_value = get_date()
     hours = generate_hours()
+
     process_hour.expand(
         hour=hours,
-        date=["{{ dag_run.conf['date'] }}"] * 24
+        date=date_value
     )
