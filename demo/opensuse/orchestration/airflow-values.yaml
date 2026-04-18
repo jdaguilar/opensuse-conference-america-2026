@@ -16,4 +16,10 @@ ingress:
 
 dags:
   gitSync:
-    enabled: false # For local demo, we'll sync local directory instead
+    enabled: true
+    repo: https://github.com/jdaguilar/opensuse-conference-america-2026
+    branch: main
+    subPath: demo/opensuse/orchestration/dags
+
+    sshKeySecret: ""
+    knownHosts: ""

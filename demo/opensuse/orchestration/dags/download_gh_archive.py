@@ -1,5 +1,5 @@
 from airflow import DAG
-from airflow.sdk import task
+from airflow.decorators import task
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 import os
@@ -68,12 +68,11 @@ with DAG(
 
         os.remove(local_path)
 
-    # ---- wiring ----
     date_value = get_date()
     hours = generate_hours()
 
     process_hour.partial(
-        date=date_value   # ✅ constant (not mapped)
+        date=date_value
     ).expand(
-        hour=hours        # ✅ mapped
+        hour=hours
     )
