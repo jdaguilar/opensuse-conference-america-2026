@@ -50,6 +50,11 @@ RUN pip install --no-cache-dir \
     boto3 \
     duckdb
 
+# Copy demo notebooks and scripts into the image
+COPY scripts/ /home/jovyan/scripts/
+RUN chmod +x /home/jovyan/scripts/*.sh && \
+    chown -R ${NB_UID}:${NB_GID} /home/jovyan/scripts/
+
 USER ${NB_UID}
 
 WORKDIR /home/jovyan
