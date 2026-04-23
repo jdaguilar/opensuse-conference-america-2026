@@ -1,0 +1,4 @@
+configs:
+  "localhost:5000":
+    tls:
+      insecure_skip_verify: true
