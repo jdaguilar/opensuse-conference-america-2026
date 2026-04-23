@@ -1,0 +1,50 @@
+proxy:
+  service:
+    type: ClusterIP
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  hosts:
+    - jupyterhub.localhost
+  # pathSuffix: '/'
+
+singleuser:
+  image:
+    name: localhost:5000/local_notebook
+    tag: latest
+    pullPolicy: Always
+  extraEnv:
+    AWS_ACCESS_KEY_ID: "hadoop"
+    AWS_SECRET_ACCESS_KEY: "ozone"
+    # AWS_ENDPOINT_URL_S3 is read by AWS CLI v2 and boto3
+    AWS_ENDPOINT_URL_S3: "http://ozone-s3g-rest.data-storage.svc.cluster.local:9878"
+    # AWS_S3_ENDPOINT is read by s3fs and pyiceberg
+    AWS_S3_ENDPOINT: "http://ozone-s3g-rest.data-storage.svc.cluster.local:9878"
+    AWS_S3_PATH_STYLE_ACCESS: "true"
+  networkPolicy:
+    egress:
+      - ports:
+          - port: 9878
+            protocol: TCP
+        to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data-storage
+      - ports:
+          - port: 9083
+            protocol: TCP
+        to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data-query
+  profileList:
+    - display_name: "Datalab"
+      description: "Space to create Data Products securely"
+      default: false
+
+# httpRoute:
+#   enabled: true
+#   annotations: {}
+#   hostnames: []
+#   parentRefs: []

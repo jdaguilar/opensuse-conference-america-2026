@@ -91,29 +91,40 @@ Airflow syncs DAGs from GitHub via git-sync (repo: `jdaguilar/opensuse-conferenc
 
 ## Notebooks (datalab/)
 
-The custom notebook image (`datalab/Dockerfile`) extends `quay.io/jupyter/all-spark-notebook` with:
-- PyIceberg, duckdb, boto3
-- Hadoop AWS JARs for S3A connectivity to Ozone
+Base image: `quay.io/jupyter/all-spark-notebook:latest` (Spark 4.1.1 / Hadoop 3.4.2). Extended with:
+- `hadoop-aws-3.4.2.jar` + `aws-sdk-v2-bundle-2.29.52.jar` + `aws-java-sdk-bundle-1.12.720.jar` (versions from `hadoop-project-3.4.2.pom`)
+- `iceberg-spark-runtime-4.0_2.13-1.10.1.jar`
+- AWS CLI v2, pyiceberg, boto3, duckdb
+- `spark-defaults.conf` baked in — every SparkSession gets S3A + Iceberg pre-configured
 
-Image is built and pushed to the local registry (`localhost:5000`) by `install_lab.sh`. Resource limits per notebook: 2 CPU, 4GB RAM.
+Image is built and pushed to `localhost:5000/local_notebook:latest` by `install_lab.sh`.
 
-## Spark Configuration
+**Iceberg catalog**: `HadoopCatalog` named `iceberg`, warehouse `s3a://curated/`. No Hive metastore required.
 
-Custom Spark image: `processing/Dockerfile.spark` (base: `opensuse/leap:15.5`)
-- Spark 3.5.0, Hadoop 3, Iceberg 1.4.2, AWS SDK 2.20.18
-- Key JARs: `hadoop-aws-3.3.4.jar`, `aws-java-sdk-1.12.797.jar`
-
-Spark jobs must include these conf entries:
+```python
+spark.sql("CREATE NAMESPACE IF NOT EXISTS iceberg.curated")
+df.writeTo("iceberg.curated.my_table").partitionedBy("year").createOrReplace()
 ```
-spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
-spark.sql.catalog.spark_catalog=org.apache.iceberg.spark.SparkSessionCatalog
+
+**NetworkPolicy**: notebook pods require egress to `data-storage:9878` (Ozone) — configured in `jupyterhub-values.yaml`.
+
+## Spark Configuration (notebook)
+
+`datalab/spark-defaults.conf` pre-configures every SparkSession:
+```
+spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
 spark.hadoop.fs.s3a.endpoint=http://ozone-s3g-rest.data-storage.svc.cluster.local:9878
-spark.hadoop.fs.s3a.path.style.access=true
+spark.hadoop.fs.s3a.access.key=hadoop
+spark.hadoop.fs.s3a.secret.key=ozone
+spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+spark.sql.catalog.iceberg=org.apache.iceberg.spark.SparkCatalog
+spark.sql.catalog.iceberg.type=hadoop
+spark.sql.catalog.iceberg.warehouse=s3a://curated/
 ```
 
 ## Trino / Iceberg Query
 
-Trino is configured with an Iceberg catalog pointing to Ozone. Hive metastore URI: `thrift://hive-metastore:9083`.
+Trino is configured with an Iceberg connector pointing to Ozone. **Note**: Hive metastore (`thrift://hive-metastore:9083`) is referenced in Trino config but not yet deployed — Trino Iceberg queries will fail until a metastore is added.
 
 dbt project (`transformation/dbt-project/`) targets Trino with profile `gharchive`. Models default to `view` materialization.
 
