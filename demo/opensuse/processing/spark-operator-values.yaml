@@ -1,0 +1,12 @@
+sparkJobNamespace: data-processing
+
+webhook:
+  enable: true
+
+serviceAccounts:
+  spark:
+    create: true
+    name: spark
+
+metrics:
+  enable: true

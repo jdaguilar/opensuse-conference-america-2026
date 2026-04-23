@@ -1,0 +1,101 @@
+---
+# Namespace for Spark jobs
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-processing
+  labels:
+    app: spark
+    kubernetes.io/metadata.name: data-processing
+  annotations:
+    kubernetes.io/description: "Spark job execution namespace"
+
+---
+# ServiceAccount used by Spark driver and executor pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spark
+  namespace: data-processing
+  labels:
+    app: spark
+    version: "1.0"
+  annotations:
+    kubernetes.io/description: "ServiceAccount for Spark driver and executor pods"
+
+---
+# Role: Spark driver needs to create/manage executor pods and services
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spark-role
+  namespace: data-processing
+  labels:
+    app: spark
+    version: "1.0"
+  annotations:
+    kubernetes.io/description: "Permissions for Spark driver pod"
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims"]
+    verbs: ["create", "get", "list", "watch", "delete", "update", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-role-binding
+  namespace: data-processing
+  labels:
+    app: spark
+    version: "1.0"
+  annotations:
+    kubernetes.io/description: "Bind spark ServiceAccount to spark-role"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spark-role
+subjects:
+  - kind: ServiceAccount
+    name: spark
+    namespace: data-processing
+
+---
+# Role: allow Airflow scheduler to create/manage SparkApplication CRDs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: airflow-spark-role
+  namespace: data-processing
+  labels:
+    app: airflow
+    version: "1.0"
+  annotations:
+    kubernetes.io/description: "Allow Airflow to submit and monitor SparkApplication CRDs"
+rules:
+  - apiGroups: ["sparkoperator.k8s.io"]
+    resources: ["sparkapplications", "scheduledsparkapplications"]
+    verbs: ["create", "get", "list", "watch", "delete", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: airflow-spark-role-binding
+  namespace: data-processing
+  labels:
+    app: airflow
+    version: "1.0"
+  annotations:
+    kubernetes.io/description: "Bind Airflow scheduler to airflow-spark-role"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: airflow-spark-role
+subjects:
+  - kind: ServiceAccount
+    name: airflow-scheduler
+    namespace: data-orchestration

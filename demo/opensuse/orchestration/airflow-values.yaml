@@ -3,6 +3,15 @@
 
 executor: "LocalExecutor"
 
+# Kubernetes connection used by @task functions that call the k8s API directly
+env:
+  - name: AIRFLOW_CONN_KUBERNETES_DEFAULT
+    value: "kubernetes://?extra=%7B%22in_cluster%22%3A+true%7D"
+
+# kubernetes provider needed for SparkApplication CRD management
+extraPipPackages:
+  - "apache-airflow-providers-cncf-kubernetes>=9.0.0"
+
 ingress:
   apiServer:
     enabled: true
