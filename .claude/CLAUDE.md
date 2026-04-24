@@ -67,6 +67,7 @@ gharchive.org → Airflow (ingestion DAG) → Ozone S3 (raw/)
 | Processing | Spark Operator 2.5 + Spark 4.0.0 | spark-operator / data-processing | — |
 | Metastore | Hive Metastore 4.0.0 | data-query | thrift://hive-metastore:9083 |
 | Query | Trino | data-query | http://trinodb.localhost |
+| SQL Client | CloudBeaver | data-query | http://cloudbeaver.localhost |
 | BI | Apache Superset 5.0.0 | data-bi | http://superset.localhost |
 | Orchestration | Airflow 3.x | data-orchestration | http://airflow.localhost |
 | Data Catalog | OpenMetadata | catalog | — |
@@ -188,6 +189,16 @@ SHOW TABLES IN ozone_iceberg.curated;   -- Iceberg tables written by Spark
 ```
 
 dbt project (`transformation/dbt-project/`) targets Trino with profile `gharchive`. Models default to `view` materialization.
+
+## CloudBeaver (SQL Client)
+
+Web-based DBeaver deployed in `data-query`. Access at `http://cloudbeaver.localhost` (admin / admin).
+
+Pre-configured connections (set up via initContainer on first boot):
+- **Trino** — `trino.data-query.svc.cluster.local:8080`, catalog `ozone_iceberg`, user `admin`
+- **Hive Metastore DB** — PostgreSQL at `hive-metastore-postgresql.data-query.svc.cluster.local:5432`, db `metastore`, user `hive` / password `hive`
+
+To redeploy: `kubectl apply -f demo/opensuse/query-engine/cloudbeaver.yaml`
 
 ## Cluster Interaction
 

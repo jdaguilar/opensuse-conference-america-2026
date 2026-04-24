@@ -21,3 +21,11 @@ echo "  Deploying Trino..."
 helm upgrade --install trino trino/trino \
   -f "$SCRIPT_DIR/trino-values.yaml" \
   --create-namespace -n data-query
+
+# Deploy CloudBeaver (web SQL client)
+echo "  Deploying CloudBeaver..."
+kubectl apply -f "$SCRIPT_DIR/cloudbeaver.yaml"
+
+echo "[5/7] Query Engine deployed."
+echo "  Trino:        http://trinodb.localhost"
+echo "  CloudBeaver:  http://cloudbeaver.localhost  (admin / admin)"
