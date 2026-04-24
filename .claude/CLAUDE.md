@@ -24,20 +24,20 @@ A complete open-source data platform deployed on Kubernetes (K3s + SUSE Rancher)
 ./teardown.sh
 ```
 
-Individual components can be installed via `demo/opensuse/scripts/`:
+Individual components each have an install script co-located in their directory:
 ```bash
-demo/opensuse/scripts/install-repos.sh        # Register Helm repos (run first)
-demo/opensuse/scripts/install-storage.sh
-demo/opensuse/scripts/install-streaming.sh
-demo/opensuse/scripts/install-orchestration.sh
-demo/opensuse/scripts/install-bi.sh
-demo/opensuse/scripts/create-artifacts-bucket.sh   # Initialize Ozone buckets
-```
-
-Datalab (JupyterHub notebooks):
-```bash
-cd demo/opensuse/datalab
-./install_lab.sh   # Build image, push to local registry, deploy JupyterHub
+demo/opensuse/cluster/install-repos.sh            # Register Helm repos (run first)
+demo/opensuse/observability/install-observability.sh
+demo/opensuse/storage/install-storage.sh
+demo/opensuse/storage/create-artifacts-bucket.sh  # Initialize Ozone buckets
+demo/opensuse/streaming/install-streaming.sh
+demo/opensuse/ingestion/install-ingestion.sh
+demo/opensuse/processing/install-processing.sh
+demo/opensuse/query-engine/install-query-engine.sh
+demo/opensuse/orchestration/install-orchestration.sh
+demo/opensuse/bi/install-bi.sh
+demo/opensuse/catalog/install-catalog.sh
+demo/opensuse/datalab/install-datalab.sh          # Build image + deploy JupyterHub
 ```
 
 ## Architecture
@@ -98,7 +98,7 @@ Base image: `quay.io/jupyter/all-spark-notebook:latest` (Spark 4.1.1 / Hadoop 3.
 - AWS CLI v2, pyiceberg, boto3, duckdb
 - `spark-defaults.conf` baked in — every SparkSession gets S3A + Iceberg pre-configured
 
-Image is built and pushed to `localhost:5000/local_notebook:latest` by `install_lab.sh`.
+Image is built and pushed to `localhost:5000/local_notebook:latest` by `install-datalab.sh`.
 
 **Iceberg catalog**: `HadoopCatalog` named `iceberg`, warehouse `s3a://curated/`. No Hive metastore required.
 

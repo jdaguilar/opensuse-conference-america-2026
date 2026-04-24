@@ -1,8 +1,10 @@
 #!/bin/bash
-# scripts/install-storage.sh
+# storage/install-storage.sh
 # [2/7] Deploys Storage (Apache Ozone & Filestash)
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "[2/7] Deploying Storage (Apache Ozone & Filestash)..."
 
@@ -15,8 +17,8 @@ helm repo update
 
 # Install Ozone (Apache)
 helm upgrade --install ozone apache/ozone \
-  -f storage/ozone-values.yaml \
+  -f "$SCRIPT_DIR/ozone-values.yaml" \
   -n data-storage
 
 # Install Filestash (UI Tooling)
-kubectl apply -f storage/filestash.yaml
+kubectl apply -f "$SCRIPT_DIR/filestash.yaml"

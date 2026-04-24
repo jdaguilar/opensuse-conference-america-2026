@@ -1,17 +1,15 @@
 #!/bin/bash
-# install-processing.sh — deploy Spark Operator and upload the curation script to Ozone
+# processing/install-processing.sh — deploy Spark Operator and upload the curation script to Ozone
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-PROCESSING_DIR="$REPO_ROOT/demo/opensuse/processing"
 
 export KUBECONFIG=~/.kube/config
 
 echo "=== Spark Operator setup ==="
 
 echo "[1/5] Applying RBAC..."
-kubectl apply -f "$PROCESSING_DIR/rbac.yaml"
+kubectl apply -f "$SCRIPT_DIR/rbac.yaml"
 
 echo "[2/5] Adding spark-operator Helm repo..."
 helm repo add spark-operator https://kubeflow.github.io/spark-operator 2>/dev/null || true
@@ -22,7 +20,7 @@ helm upgrade --install spark-operator spark-operator/spark-operator \
   --namespace spark-operator \
   --create-namespace \
   --timeout 5m \
-  -f "$PROCESSING_DIR/spark-operator-values.yaml"
+  -f "$SCRIPT_DIR/spark-operator-values.yaml"
 
 echo "[4/5] Waiting for spark-operator to be ready..."
 kubectl rollout status deployment/spark-operator-controller \
@@ -32,7 +30,7 @@ kubectl wait --for=condition=Ready pods \
   -n spark-operator --timeout=120s
 
 echo "[5/5] Uploading curation script to s3://artifacts/scripts/..."
-CURATION_SCRIPT="$PROCESSING_DIR/scripts/github_curation.py"
+CURATION_SCRIPT="$SCRIPT_DIR/scripts/github_curation.py"
 
 # Use the notebook pod (has AWS CLI + Ozone credentials already configured)
 NOTEBOOK_POD=$(kubectl get pods -n datalab -l component=singleuser-server \
