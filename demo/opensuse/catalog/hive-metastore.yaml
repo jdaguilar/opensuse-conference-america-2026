@@ -113,9 +113,13 @@ data:
         <name>hive.metastore.warehouse.dir</name>
         <value>s3a://curated/warehouse/</value>
       </property>
-      <!-- Do not validate warehouse dir on startup -->
+      <!-- Allow DataNucleus to create tables; skip Hive version validation -->
       <property>
         <name>datanucleus.schema.autoCreateAll</name>
+        <value>true</value>
+      </property>
+      <property>
+        <name>hive.metastore.schema.verification</name>
         <value>false</value>
       </property>
       <property>
@@ -193,11 +197,13 @@ spec:
               done
         - name: schema-init
           image: localhost:5000/hive-metastore:4.0.0
+          imagePullPolicy: Always
           command:
             - sh
             - -c
             - |
-              /opt/hive/bin/schematool -dbType postgres -initSchema --verbose 2>&1 | tail -5 || true
+              /opt/hive/bin/schematool -dbType postgres -initSchema --verbose 2>&1 | tail -3 \
+              || echo "Schema may already exist, continuing."
           volumeMounts:
             - name: hive-config
               mountPath: /opt/hive/conf/hive-site.xml

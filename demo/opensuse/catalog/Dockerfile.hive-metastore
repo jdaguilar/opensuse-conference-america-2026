@@ -23,4 +23,8 @@ RUN wget -q \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/${POSTGRESQL_JDBC_VERSION}/postgresql-${POSTGRESQL_JDBC_VERSION}.jar" \
     -O /opt/hive/lib/postgresql-${POSTGRESQL_JDBC_VERSION}.jar
 
+# Skip Hive schema version check — schema is initialized by schematool on first run
+# or auto-created by DataNucleus; the version table is not populated in either case.
+ENV JAVA_TOOL_OPTIONS="-Dhive.metastore.schema.verification=false"
+
 USER hive
