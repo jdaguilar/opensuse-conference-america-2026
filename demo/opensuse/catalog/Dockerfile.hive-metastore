@@ -1,0 +1,26 @@
+# catalog/Dockerfile.hive-metastore
+# Extends apache/hive:4.0.0 (Hadoop 3.3.6) with S3A support for Apache Ozone.
+# Versions from hadoop-project-3.3.6.pom.
+FROM apache/hive:4.0.0
+
+ARG HADOOP_AWS_VERSION=3.3.6
+ARG AWS_SDK_V1_VERSION=1.12.262
+ARG POSTGRESQL_JDBC_VERSION=42.7.4
+
+USER root
+
+RUN apt-get update -qq && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
+
+RUN wget -q \
+    "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_AWS_VERSION}/hadoop-aws-${HADOOP_AWS_VERSION}.jar" \
+    -O /opt/hive/lib/hadoop-aws-${HADOOP_AWS_VERSION}.jar
+
+RUN wget -q \
+    "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/${AWS_SDK_V1_VERSION}/aws-java-sdk-bundle-${AWS_SDK_V1_VERSION}.jar" \
+    -O /opt/hive/lib/aws-java-sdk-bundle-${AWS_SDK_V1_VERSION}.jar
+
+RUN wget -q \
+    "https://repo1.maven.org/maven2/org/postgresql/postgresql/${POSTGRESQL_JDBC_VERSION}/postgresql-${POSTGRESQL_JDBC_VERSION}.jar" \
+    -O /opt/hive/lib/postgresql-${POSTGRESQL_JDBC_VERSION}.jar
+
+USER hive
