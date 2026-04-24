@@ -3,8 +3,10 @@
 # Uses apache/spark:4.0.0 so /opt/entrypoint.sh handles driver/executor subcommands.
 FROM apache/spark:4.0.0
 
-ARG HADOOP_AWS_VERSION=3.4.2
-ARG AWS_SDK_V2_VERSION=2.29.52
+# Versions pinned to match apache/spark:4.0.0 which bundles hadoop-client-runtime-3.4.1.
+# hadoop-aws must match the bundled Hadoop core; SDK versions from hadoop-project-3.4.1.pom.
+ARG HADOOP_AWS_VERSION=3.4.1
+ARG AWS_SDK_V2_VERSION=2.24.6
 ARG AWS_SDK_V1_BUNDLE_VERSION=1.12.720
 ARG ICEBERG_VERSION=1.10.1
 
