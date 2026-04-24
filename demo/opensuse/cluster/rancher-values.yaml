@@ -1,0 +1,14 @@
+# cluster/rancher-values.yaml
+# Rancher deployment values for local demo cluster.
+
+hostname: rancher.localhost
+bootstrapPassword: admin
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: 1
+    memory: 1500Mi

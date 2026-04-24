@@ -49,11 +49,11 @@ supersetNode:
     replicaCount: 1
   resources:
     requests:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      cpu: 1
-      memory: 1Gi
+      cpu: 500m
+      memory: 768Mi
 
 supersetWorker:
   replicas:
@@ -66,10 +66,10 @@ supersetWorker:
   resources:
     requests:
       cpu: 100m
-      memory: 512Mi
+      memory: 256Mi
     limits:
-      cpu: 1
-      memory: 1Gi
+      cpu: 500m
+      memory: 768Mi
 
 postgresql:
   enabled: true

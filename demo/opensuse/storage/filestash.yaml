@@ -26,6 +26,13 @@ spec:
             - name: ADMIN_PASSWORD
               # BCRYPT HASH FOR admin
               value: "$2b$12$bHy0tCbZjCkjPCCodiMO0epdlOvoZie5qHBFZADoBXIRGVSXoXSfy"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
 ---
 apiVersion: v1
 kind: Service

@@ -19,7 +19,7 @@ ingress:
   web:
     enabled: true
     ingressClassName: traefik
-    
+
     hosts:
       - name: airflow.localhost
 
@@ -32,3 +32,39 @@ dags:
 
     sshKeySecret: ""
     knownHosts: ""
+
+scheduler:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+dagProcessor:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+triggerer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+webserver:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

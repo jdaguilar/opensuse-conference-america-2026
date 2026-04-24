@@ -44,9 +44,7 @@ helm repo update
 helm install rancher rancher-latest/rancher \
   --namespace cattle-system \
   --create-namespace \
-  --set hostname=rancher.localhost \
-  --set bootstrapPassword=admin \
-  --set replicas=1
+  -f "$(dirname "$0")/rancher-values.yaml"
 
 echo "Rancher installation started successfully."
 
