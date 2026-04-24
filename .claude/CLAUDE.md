@@ -163,3 +163,4 @@ Each component has a `*-values.yaml` in its directory. Key files:
 @rules/code-style.md
 @rules/testing.md
 @rules/security.md
+@rules/known-issues.md

@@ -31,6 +31,8 @@ DAGs live in `demo/opensuse/orchestration/dags/`.
 - `PythonOperator`, `BashOperator` → use `@task` and `@task.bash`
 - `execution_date` → use `logical_date`
 - Importing from `airflow.utils.dates` → module removed in Airflow 3
+- `from airflow.decorators import dag, task` → use `from airflow.sdk import dag, task` (decorators path deprecated in Airflow 3)
+- `params` as a `@task` argument name → reserved Airflow context key; use `job_params` or any other name
 
 ## Kubernetes Manifests
 

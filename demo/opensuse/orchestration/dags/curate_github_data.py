@@ -4,10 +4,7 @@ import sys
 from datetime import timedelta
 
 import pendulum
-from airflow.decorators import dag, task
-from airflow.providers.cncf.kubernetes.operators.spark_kubernetes import (
-    SparkKubernetesOperator,
-)
+from airflow.sdk import dag, task
 
 SPARK_IMAGE = "localhost:5000/local_notebook:latest"
 SPARK_NAMESPACE = "data-processing"
@@ -81,7 +78,7 @@ def curate_github_data():
         return {"date": target.strftime("%Y-%m-%d"), "hour": target.hour}
 
     @task
-    def submit_spark_job(params: dict) -> None:
+    def submit_spark_job(job_params: dict) -> None:
         """Create SparkApplication CRD via the Kubernetes API."""
         from kubernetes import client, config
 
@@ -90,7 +87,7 @@ def curate_github_data():
         except config.ConfigException:
             config.load_kube_config()
 
-        manifest = _build_spark_application(params["date"], params["hour"])
+        manifest = _build_spark_application(job_params["date"], job_params["hour"])
         custom_api = client.CustomObjectsApi()
 
         try:
@@ -118,7 +115,7 @@ def curate_github_data():
         )
 
     @task
-    def wait_for_spark_job(params: dict) -> None:
+    def wait_for_spark_job(job_params: dict) -> None:
         """Poll until the SparkApplication reaches COMPLETED or FAILED state."""
         import time
 
@@ -129,7 +126,7 @@ def curate_github_data():
         except config.ConfigException:
             config.load_kube_config()
 
-        name = _build_spark_application(params["date"], params["hour"])["metadata"]["name"]
+        name = _build_spark_application(job_params["date"], job_params["hour"])["metadata"]["name"]
         custom_api = client.CustomObjectsApi()
         timeout = 1800
         interval = 30
@@ -156,8 +153,8 @@ def curate_github_data():
 
         raise TimeoutError(f"SparkApplication {name} did not finish within {timeout}s")
 
-    params = get_date_and_hour()
-    submit_spark_job(params) >> wait_for_spark_job(params)
+    job_params = get_date_and_hour()
+    submit_spark_job(job_params) >> wait_for_spark_job(job_params)
 
 
 curate_github_data()

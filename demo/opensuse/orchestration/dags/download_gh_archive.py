@@ -1,5 +1,4 @@
-from airflow import DAG
-from airflow.decorators import task
+from airflow.sdk import DAG, task
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 import os
