@@ -1,0 +1,106 @@
+# bi/superset-values.yaml
+# Apache Superset — custom image with Trino driver baked in.
+
+image:
+  repository: localhost:5000/superset
+  tag: "5.0.0"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8088
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  path: /
+  pathType: Prefix
+  hosts:
+    - superset.localhost
+
+# Superset configuration overrides (appended to superset_config.py)
+configOverrides:
+  proxy_fix: |
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    ENABLE_PROXY_FIX = True
+    PROXY_FIX_CONFIG = {"x_for": 1, "x_proto": 1, "x_host": 1, "x_prefix": 1}
+  feature_flags: |
+    FEATURE_FLAGS = {
+        "ENABLE_TEMPLATE_PROCESSING": True,
+        "SQLLAB_BACKEND_PERSISTENCE": True,
+    }
+
+init:
+  enabled: true
+  loadExamples: false
+  createAdmin: true
+  adminUser:
+    username: admin
+    firstname: Admin
+    lastname: Admin
+    email: admin@superset.com
+    password: admin
+
+supersetNode:
+  replicas:
+    enabled: true
+    replicaCount: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+supersetWorker:
+  replicas:
+    enabled: true
+    replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+postgresql:
+  enabled: true
+  image:
+    tag: latest
+  auth:
+    username: superset
+    password: superset
+    database: superset
+  primary:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+redis:
+  enabled: true
+  image:
+    tag: latest
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+extraSecretEnv:
+  SUPERSET_SECRET_KEY: "opensuse-demo-secret-key-2026"
