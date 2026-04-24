@@ -25,9 +25,11 @@ SPARK_CONF = {
 }
 
 
-def _build_spark_application(date_str: str, hour: int) -> dict:
+def _build_spark_application(date_str: str, hour: int, run_id: str) -> dict:
     """Return a SparkApplication manifest for a single date/hour partition."""
-    name = f"gh-curation-{date_str.replace('-', '')}-h{hour:02d}"
+    # run_id makes the name unique per attempt so retries don't collide with
+    # the driver pod left behind by a previous attempt.
+    name = f"gh-curation-{date_str.replace('-', '')}-h{hour:02d}-{run_id}"
     return {
         "apiVersion": "sparkoperator.k8s.io/v1beta2",
         "kind": "SparkApplication",
@@ -78,8 +80,10 @@ def curate_github_data():
         return {"date": target.strftime("%Y-%m-%d"), "hour": target.hour}
 
     @task
-    def submit_spark_job(job_params: dict) -> None:
-        """Create SparkApplication CRD via the Kubernetes API."""
+    def submit_spark_job(job_params: dict) -> str:
+        """Create SparkApplication CRD and return its name for the wait task."""
+        import time
+
         from kubernetes import client, config
 
         try:
@@ -87,19 +91,10 @@ def curate_github_data():
         except config.ConfigException:
             config.load_kube_config()
 
-        manifest = _build_spark_application(job_params["date"], job_params["hour"])
+        run_id = str(int(time.time()))
+        manifest = _build_spark_application(job_params["date"], job_params["hour"], run_id)
+        app_name = manifest["metadata"]["name"]
         custom_api = client.CustomObjectsApi()
-
-        try:
-            custom_api.delete_namespaced_custom_object(
-                group="sparkoperator.k8s.io",
-                version="v1beta2",
-                namespace=SPARK_NAMESPACE,
-                plural="sparkapplications",
-                name=manifest["metadata"]["name"],
-            )
-        except Exception:
-            pass
 
         custom_api.create_namespaced_custom_object(
             group="sparkoperator.k8s.io",
@@ -108,14 +103,11 @@ def curate_github_data():
             plural="sparkapplications",
             body=manifest,
         )
-        logging.info(
-            "SparkApplication %s submitted to namespace %s",
-            manifest["metadata"]["name"],
-            SPARK_NAMESPACE,
-        )
+        logging.info("SparkApplication %s submitted to namespace %s", app_name, SPARK_NAMESPACE)
+        return app_name
 
     @task
-    def wait_for_spark_job(job_params: dict) -> None:
+    def wait_for_spark_job(app_name: str) -> None:
         """Poll until the SparkApplication reaches COMPLETED or FAILED state."""
         import time
 
@@ -126,7 +118,7 @@ def curate_github_data():
         except config.ConfigException:
             config.load_kube_config()
 
-        name = _build_spark_application(job_params["date"], job_params["hour"])["metadata"]["name"]
+        name = app_name
         custom_api = client.CustomObjectsApi()
         timeout = 1800
         interval = 30
@@ -154,7 +146,7 @@ def curate_github_data():
         raise TimeoutError(f"SparkApplication {name} did not finish within {timeout}s")
 
     job_params = get_date_and_hour()
-    submit_spark_job(job_params) >> wait_for_spark_job(job_params)
+    wait_for_spark_job(submit_spark_job(job_params))
 
 
 curate_github_data()
