@@ -1,4 +1,6 @@
-sparkJobNamespace: data-processing
+spark:
+  jobNamespaces:
+    - data-processing
 
 webhook:
   enable: true

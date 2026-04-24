@@ -1,0 +1,38 @@
+# processing/Dockerfile.spark
+# Dedicated Spark image for SparkApplication CRDs submitted by the Spark Operator.
+# Uses apache/spark:4.0.0 so /opt/entrypoint.sh handles driver/executor subcommands.
+FROM apache/spark:4.0.0
+
+ARG HADOOP_AWS_VERSION=3.4.2
+ARG AWS_SDK_V2_VERSION=2.29.52
+ARG AWS_SDK_V1_BUNDLE_VERSION=1.12.720
+ARG ICEBERG_VERSION=1.10.1
+
+USER root
+
+# Remove JARs that conflict with the versions we pin below
+RUN find /opt/spark/jars -name "hadoop-aws-*.jar" -o \
+    -name "aws-java-sdk*.jar" -o \
+    -name "bundle-*.jar" | xargs rm -f
+
+RUN curl -fsSL \
+    "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_AWS_VERSION}/hadoop-aws-${HADOOP_AWS_VERSION}.jar" \
+    -o /opt/spark/jars/hadoop-aws-${HADOOP_AWS_VERSION}.jar
+
+RUN curl -fsSL \
+    "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/${AWS_SDK_V2_VERSION}/bundle-${AWS_SDK_V2_VERSION}.jar" \
+    -o /opt/spark/jars/aws-sdk-v2-bundle-${AWS_SDK_V2_VERSION}.jar
+
+RUN curl -fsSL \
+    "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/${AWS_SDK_V1_BUNDLE_VERSION}/aws-java-sdk-bundle-${AWS_SDK_V1_BUNDLE_VERSION}.jar" \
+    -o /opt/spark/jars/aws-java-sdk-bundle-${AWS_SDK_V1_BUNDLE_VERSION}.jar
+
+RUN curl -fsSL \
+    "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-4.0_2.13/${ICEBERG_VERSION}/iceberg-spark-runtime-4.0_2.13-${ICEBERG_VERSION}.jar" \
+    -o /opt/spark/jars/iceberg-spark-runtime-4.0_2.13-${ICEBERG_VERSION}.jar
+
+COPY spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+# spark_uid=185 is set as ARG (not ENV) in apache/spark so it is not inherited; redeclare it.
+ARG spark_uid=185
+USER ${spark_uid}

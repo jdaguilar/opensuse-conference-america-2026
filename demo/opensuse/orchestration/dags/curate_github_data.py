@@ -6,7 +6,7 @@ from datetime import timedelta
 import pendulum
 from airflow.sdk import dag, task
 
-SPARK_IMAGE = "localhost:5000/local_notebook:latest"
+SPARK_IMAGE = "localhost:5000/spark_processing:latest"
 SPARK_NAMESPACE = "data-processing"
 ARTIFACTS_BUCKET = "artifacts"
 
@@ -43,7 +43,7 @@ def _build_spark_application(date_str: str, hour: int) -> dict:
             "imagePullPolicy": "Always",
             "mainApplicationFile": f"s3a://{ARTIFACTS_BUCKET}/scripts/github_curation.py",
             "arguments": [date_str, str(hour)],
-            "sparkVersion": "4.1.1",
+            "sparkVersion": "4.0.0",
             "restartPolicy": {"type": "Never"},
             "sparkConf": SPARK_CONF,
             "driver": {
