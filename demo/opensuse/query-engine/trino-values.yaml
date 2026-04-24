@@ -31,6 +31,7 @@ additionalCatalogs:
     connector.name=iceberg
     hive.metastore.uri=thrift://hive-metastore.data-query.svc.cluster.local:9083
     iceberg.file-format=PARQUET
+    iceberg.register-table-procedure.enabled=true
     fs.native-s3.enabled=true
     s3.endpoint=http://ozone-s3g-rest.data-storage.svc.cluster.local:9878
     s3.region=us-east-1
