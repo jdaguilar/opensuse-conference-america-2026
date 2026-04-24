@@ -59,13 +59,17 @@ supersetWorker:
   replicas:
     enabled: true
     replicaCount: 1
+  command:
+    - "/bin/sh"
+    - "-c"
+    - ". /app/.venv/bin/activate && celery --app=superset.tasks.celery_app:app worker --concurrency=2 -Ofair -l INFO"
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
       memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
 
 postgresql:
   enabled: true
