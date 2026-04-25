@@ -28,7 +28,11 @@ SPARK_IMAGE = "localhost:5000/spark_processing:latest"
 SPARK_NAMESPACE = "data-processing"
 SPARK_SCRIPT = f"s3a://{ARTIFACTS_BUCKET}/scripts/github_curation_hourly.py"
 
-# S3A + Iceberg conf injected into every SparkApplication
+# S3A + Iceberg conf injected into every SparkApplication.
+# HiveCatalog (type=hive) — every write updates Hive Metastore directly so
+# Trino's ozone_iceberg catalog sees new snapshots immediately. Avoids the
+# HadoopCatalog drift problem where version-hint.text bumps in Ozone but
+# Hive's metadata pointer stays frozen at the registration version.
 SPARK_CONF = {
     "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
     "spark.hadoop.fs.s3a.endpoint": (
@@ -44,8 +48,11 @@ SPARK_CONF = {
         "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
     ),
     "spark.sql.catalog.iceberg": "org.apache.iceberg.spark.SparkCatalog",
-    "spark.sql.catalog.iceberg.type": "hadoop",
-    "spark.sql.catalog.iceberg.warehouse": "s3a://curated/",
+    "spark.sql.catalog.iceberg.type": "hive",
+    "spark.sql.catalog.iceberg.uri": (
+        "thrift://hive-metastore.data-query.svc.cluster.local:9083"
+    ),
+    "spark.sql.catalog.iceberg.warehouse": "s3a://curated/warehouse/",
 }
 
 
