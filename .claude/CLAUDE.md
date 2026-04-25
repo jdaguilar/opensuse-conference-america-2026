@@ -90,7 +90,7 @@ Located in `demo/opensuse/orchestration/dags/`:
 - **`gharchive_hourly_pipeline.py`** — Hourly (`0 * * * *`). Lookback 24h: at today H:00 ingests yesterday H:00. Single-file download → SparkApplication. Writes to `iceberg.curated.github_events_hourly` partitioned by year/month/day/hour via **HiveCatalog** (auto-registers in metastore — no `register_table` needed). Idempotent: re-running an hour overwrites only that partition (`overwritePartitions()`).
 - **`create_curated_tables.py`** — One-shot setup. Calls `system.register_table` to expose the daily `github_events` HadoopCatalog table to Trino. Uses `SQLExecuteQueryOperator` with `conn_id="trino_default"`.
 
-Airflow syncs DAGs from GitHub via git-sync (repo: `jdaguilar/opensuse-conference-america-2026`).
+Airflow syncs DAGs from GitHub via git-sync (repo: `jdaguilar/opensuse-conference-america-2026`). **DAG edits must be pushed to `origin/main`** — committed-but-unpushed changes will never reach the cluster, and the next DAG run still uses the old code (silent footgun).
 
 **Extending the Airflow image with extra providers**: `extraPipPackages` on the Helm chart is a no-op — set `_PIP_ADDITIONAL_REQUIREMENTS` env in `airflow-values.yaml` instead. The trino provider is currently installed this way (`apache-airflow-providers-trino>=5.7.0`). Note: trino provider 6.x removed `TrinoOperator` — use `SQLExecuteQueryOperator` from `airflow.providers.common.sql.operators.sql` with `conn_id="trino_default"`.
 
@@ -243,6 +243,26 @@ kubectl exec -n data-storage ozone-om-0 -- bash -c \
   "AWS_ACCESS_KEY_ID=hadoop AWS_SECRET_ACCESS_KEY=ozone \
    aws --endpoint-url http://ozone-s3g-rest.data-storage.svc.cluster.local:9878 \
    s3 ls s3://curated/ --recursive"
+```
+
+Trigger an Airflow DAG run via API (Airflow 3.x — JWT auth, not basic):
+```bash
+API_POD=$(kubectl get pods -n data-orchestration -l component=api-server -o jsonpath='{.items[0].metadata.name}')
+TOKEN=$(kubectl exec -n data-orchestration "$API_POD" -c api-server -- \
+  curl -s -X POST http://localhost:8080/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}' | jq -r .access_token)
+kubectl exec -n data-orchestration "$API_POD" -c api-server -- \
+  curl -s -X POST "http://localhost:8080/api/v2/dags/<dag_id>/dagRuns" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"dag_run_id":"manual_<unique>","logical_date":"YYYY-MM-DDTHH:00:00Z"}'
+```
+DAG runs are unique per `(dag_id, logical_date)` — pick a logical_date that doesn't already exist, or you'll get a constraint violation.
+
+Inspect a SparkApplication's catalog config (verify HiveCatalog vs HadoopCatalog):
+```bash
+kubectl get -n data-processing sparkapplication/<name> -o jsonpath='{.spec.sparkConf}' \
+  | python3 -m json.tool | grep -E "iceberg.type|warehouse|uri"
 ```
 
 ## Helm Values Files
