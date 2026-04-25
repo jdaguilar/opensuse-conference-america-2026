@@ -3,7 +3,7 @@ import os
 import sys
 
 import pendulum
-from airflow.providers.trino.operators.trino import TrinoOperator
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.sdk import dag
 
 log = logging.getLogger(__name__)
@@ -32,9 +32,9 @@ CALL {CATALOG}.system.register_table(
     tags=["iceberg", "setup", "ddl"],
 )
 def create_curated_tables():
-    TrinoOperator(
+    SQLExecuteQueryOperator(
         task_id="register_github_events",
-        trino_conn_id=TRINO_CONN_ID,
+        conn_id=TRINO_CONN_ID,
         sql=REGISTER_GITHUB_EVENTS,
     )
 
