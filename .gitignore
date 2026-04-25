@@ -1,0 +1,48 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+.vscode/
+
+# AI tool configs (local / personal)
+.cline/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+
+# Local Kubernetes / kubeconfig leftovers
+kubeconfig
+*.kubeconfig
