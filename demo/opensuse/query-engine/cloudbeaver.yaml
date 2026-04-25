@@ -2,61 +2,40 @@
 # CloudBeaver — web-based SQL client for Trino and Hive Metastore PostgreSQL
 #
 # Access: http://cloudbeaver.localhost  (admin / admin)
-# Pre-configured connections:
-#   - Trino (ozone_iceberg catalog): trino.data-query.svc.cluster.local:8080
-#   - Hive Metastore DB (PostgreSQL): hive-metastore-postgresql.data-query.svc.cluster.local:5432
+#
+# Connections must be added once via the UI (Database → New Connection).
+# They persist in the PVC across pod restarts.
+#
+# Trino (ozone_iceberg):
+#   Host:     trino.data-query.svc.cluster.local
+#   Port:     8080
+#   Database: ozone_iceberg
+#   User:     admin    (no password)
+#
+# Hive Metastore DB (PostgreSQL):
+#   Host:     hive-metastore-postgresql.data-query.svc.cluster.local
+#   Port:     5432
+#   Database: metastore
+#   User:     hive
+#   Password: hive
 
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: PersistentVolumeClaim
 metadata:
-  name: cloudbeaver-init
+  name: cloudbeaver-workspace
   namespace: data-query
   labels:
     app: cloudbeaver
     version: "latest"
   annotations:
-    kubernetes.io/description: "CloudBeaver pre-configured data sources for Trino and Hive Metastore"
-data:
-  data-sources.json: |
-    {
-      "folders": {},
-      "connections": {
-        "trino-ozone-iceberg": {
-          "provider": "generic",
-          "driver": "generic:trino",
-          "name": "Trino — ozone_iceberg",
-          "save-password": false,
-          "read-only": false,
-          "configuration": {
-            "host": "trino.data-query.svc.cluster.local",
-            "port": "8080",
-            "database": "ozone_iceberg",
-            "auth-model": "native",
-            "properties": {
-              "@user": "admin"
-            }
-          }
-        },
-        "hive-metastore-postgres": {
-          "provider": "postgresql",
-          "driver": "postgresql:postgresql",
-          "name": "Hive Metastore DB",
-          "save-password": true,
-          "read-only": false,
-          "configuration": {
-            "host": "hive-metastore-postgresql.data-query.svc.cluster.local",
-            "port": "5432",
-            "database": "metastore",
-            "auth-model": "native",
-            "properties": {
-              "@user": "hive",
-              "@password": "hive"
-            }
-          }
-        }
-      }
-    }
+    kubernetes.io/description: "CloudBeaver workspace — persists shared connections across pod restarts"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 
 ---
 apiVersion: apps/v1
@@ -71,6 +50,8 @@ metadata:
     kubernetes.io/description: "CloudBeaver web SQL client — Trino and Hive Metastore"
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: cloudbeaver
@@ -80,20 +61,6 @@ spec:
         app: cloudbeaver
         version: "latest"
     spec:
-      initContainers:
-        - name: init-workspace
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - |
-              mkdir -p /workspace/GlobalConfiguration/.dbeaver
-              cp /init/data-sources.json /workspace/GlobalConfiguration/.dbeaver/data-sources.json
-          volumeMounts:
-            - name: workspace
-              mountPath: /workspace
-            - name: init-config
-              mountPath: /init
       containers:
         - name: cloudbeaver
           image: dbeaver/cloudbeaver:latest
@@ -116,10 +83,8 @@ spec:
               memory: 768Mi
       volumes:
         - name: workspace
-          emptyDir: {}
-        - name: init-config
-          configMap:
-            name: cloudbeaver-init
+          persistentVolumeClaim:
+            claimName: cloudbeaver-workspace
 
 ---
 apiVersion: v1
