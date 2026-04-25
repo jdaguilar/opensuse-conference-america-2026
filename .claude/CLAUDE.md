@@ -86,10 +86,17 @@ S3 gateway (within cluster): `http://ozone-s3g-rest.data-storage.svc.cluster.loc
 Located in `demo/opensuse/orchestration/dags/`:
 
 - **`download_gh_archive.py`** — Daily at 10:00 UTC. Downloads 24 hourly GitHub Archive files and uploads to Ozone `s3://raw/`.
-- **`curate_github_data.py`** — Daily at 12:00 UTC. Runs a Spark job that reads `s3a://raw/` and writes Iceberg tables to `s3a://curated/`.
-- **`create_curated_tables.py`** — Creates Iceberg table DDL in Trino/Hive metastore.
+- **`curate_github_data.py`** — Daily at 12:00 UTC. Runs a Spark job that reads `s3a://raw/` and writes Iceberg tables to `s3a://curated/` via **HadoopCatalog** (one-shot table; manually registered with `register_table`).
+- **`gharchive_hourly_pipeline.py`** — Hourly (`0 * * * *`). Lookback 24h: at today H:00 ingests yesterday H:00. Single-file download → SparkApplication. Writes to `iceberg.curated.github_events_hourly` partitioned by year/month/day/hour via **HiveCatalog** (auto-registers in metastore — no `register_table` needed). Idempotent: re-running an hour overwrites only that partition (`overwritePartitions()`).
+- **`create_curated_tables.py`** — One-shot setup. Calls `system.register_table` to expose the daily `github_events` HadoopCatalog table to Trino. Uses `SQLExecuteQueryOperator` with `conn_id="trino_default"`.
 
 Airflow syncs DAGs from GitHub via git-sync (repo: `jdaguilar/opensuse-conference-america-2026`).
+
+**Extending the Airflow image with extra providers**: `extraPipPackages` on the Helm chart is a no-op — set `_PIP_ADDITIONAL_REQUIREMENTS` env in `airflow-values.yaml` instead. The trino provider is currently installed this way (`apache-airflow-providers-trino>=5.7.0`). Note: trino provider 6.x removed `TrinoOperator` — use `SQLExecuteQueryOperator` from `airflow.providers.common.sql.operators.sql` with `conn_id="trino_default"`.
+
+**Iceberg catalog choice for Spark jobs**:
+- **Daily / one-shot writes** (`createOrReplace` style) → HadoopCatalog is fine; register the table once in Hive Metastore via `system.register_table`.
+- **Incremental / scheduled writes** (`overwritePartitions`, `append`) → use **HiveCatalog** (`type=hive`, `uri=thrift://hive-metastore...`, `warehouse=s3a://curated/warehouse/`). Every Spark write updates Hive Metastore directly so Trino sees new snapshots immediately. With HadoopCatalog, Trino's metadata pointer goes stale after the first write because Spark only updates `version-hint.text` in Ozone, not Hive.
 
 ## Notebooks (datalab/)
 
@@ -194,11 +201,12 @@ dbt project (`transformation/dbt-project/`) targets Trino with profile `gharchiv
 
 Web-based DBeaver deployed in `data-query`. Access at `http://cloudbeaver.localhost` (admin / admin).
 
-Pre-configured connections (set up via initContainer on first boot):
-- **Trino** — `trino.data-query.svc.cluster.local:8080`, catalog `ozone_iceberg`, user `admin`
+Workspace lives on a 1Gi PVC (`cloudbeaver-workspace`) so connections persist across pod restarts. Add the two below once via the UI (Database → New Connection); they survive helm upgrades. **Do not** try to pre-seed `data-sources.json` via initContainer — CloudBeaver Community ignores that path on first boot.
+
+- **Trino** — `trino.data-query.svc.cluster.local:8080`, catalog `ozone_iceberg`, user `admin` (no password)
 - **Hive Metastore DB** — PostgreSQL at `hive-metastore-postgresql.data-query.svc.cluster.local:5432`, db `metastore`, user `hive` / password `hive`
 
-To redeploy: `kubectl apply -f demo/opensuse/query-engine/cloudbeaver.yaml`
+To redeploy: `kubectl apply -f demo/opensuse/query-engine/cloudbeaver.yaml` (uses `strategy: Recreate` because the PVC is RWO).
 
 ## Cluster Interaction
 
@@ -222,6 +230,19 @@ Status and health scripts (no cluster changes):
 ./demo/opensuse/demo-control/verify-health.sh
 ./demo/opensuse/demo-control/get-urls.sh
 ./demo/opensuse/demo-control/status-dashboard.sh
+```
+
+Run ad-hoc Trino queries:
+```bash
+kubectl exec -n data-query deploy/trino-coordinator -- trino --execute "SHOW SCHEMAS IN ozone_iceberg;"
+```
+
+Inspect actual S3 keys in Ozone (note: `ozone sh key list` prefixes with the namespace folder; use AWS CLI for the real S3 path):
+```bash
+kubectl exec -n data-storage ozone-om-0 -- bash -c \
+  "AWS_ACCESS_KEY_ID=hadoop AWS_SECRET_ACCESS_KEY=ozone \
+   aws --endpoint-url http://ozone-s3g-rest.data-storage.svc.cluster.local:9878 \
+   s3 ls s3://curated/ --recursive"
 ```
 
 ## Helm Values Files

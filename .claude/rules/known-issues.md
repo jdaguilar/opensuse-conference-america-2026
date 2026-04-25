@@ -1,5 +1,58 @@
 # Known Issues & Fixes
 
+## Trino can't see Iceberg tables that Spark wrote (HadoopCatalog)
+
+**Symptom A** — first run: `SHOW TABLES IN ozone_iceberg.curated` returns
+nothing even though `s3://curated/` has data.
+
+**Symptom B** — recurring runs: Trino sees the table but stuck on a stale
+snapshot. Spark keeps writing (`version-hint.text` bumps in Ozone), but Trino's
+row count never grows. Confirm with `SELECT * FROM "<table>$snapshots"` — Trino's
+latest snapshot timestamp lags behind the latest `vN.metadata.json` in Ozone.
+
+**Root cause**: Spark's HadoopCatalog (`spark.sql.catalog.iceberg.type=hadoop`,
+warehouse `s3a://curated/`) writes metadata to `s3://curated/<ns>/<table>/` and
+updates `version-hint.text` to point at the latest `vN.metadata.json`. Hive
+Metastore is **never told**. Trino's `ozone_iceberg` catalog reads the
+metadata-location pointer from Hive Metastore, so it shows whatever snapshot
+was active **at registration time** — not the latest.
+
+**Path gotcha**: Spark warehouse `s3a://curated/` + namespace `curated` → tables
+land at `s3://curated/curated/<table>/` (the `curated/` inside the bucket is the
+namespace folder, not a typo).
+
+**Fix — choose by pipeline shape**:
+
+- **One-shot / static data** (e.g. backfill, manual import): keep HadoopCatalog
+  and call `register_table` once. Enable
+  `iceberg.register-table-procedure.enabled=true` in
+  `query-engine/trino-values.yaml`, then:
+  ```sql
+  CALL ozone_iceberg.system.register_table(
+    schema_name    => 'curated',
+    table_name     => 'github_events',
+    table_location => 's3://curated/curated/github_events'
+  );
+  ```
+  The `create_curated_tables` DAG does this for the daily `github_events`.
+
+- **Incremental / scheduled writes** (e.g. hourly DAG): switch the Spark job to
+  **HiveCatalog**. Override `sparkConf` in the SparkApplication manifest:
+  ```python
+  "spark.sql.catalog.iceberg.type": "hive",
+  "spark.sql.catalog.iceberg.uri": (
+      "thrift://hive-metastore.data-query.svc.cluster.local:9083"
+  ),
+  "spark.sql.catalog.iceberg.warehouse": "s3a://curated/warehouse/",
+  ```
+  Every Spark write now updates Hive Metastore directly — Trino sees new
+  snapshots instantly, no manual re-registration. `gharchive_hourly_pipeline`
+  uses this approach. Switching catalogs changes the warehouse path: drop or
+  `unregister_table` the existing HadoopCatalog-registered table first
+  (non-destructive, leaves Ozone data in place).
+
+---
+
 ## CoreDNS: external DNS resolution fails inside the cluster
 
 **Symptom**: Pods cannot resolve public hostnames (e.g. `github.com`). CoreDNS returns `REFUSED`.
@@ -56,6 +109,71 @@ causes Airflow 3 to raise a ValueError at runtime.
 **Symptom**: `DeprecatedImportWarning: The 'airflow.decorators.dag' attribute is deprecated.`
 
 **Fix**: Use `from airflow.sdk import dag, task` instead of `from airflow.decorators import dag, task`.
+
+---
+
+## Airflow: provider package not actually installed despite `extraPipPackages`
+
+**Symptom**: `ModuleNotFoundError: No module named 'airflow.providers.<name>'`
+even though the package is listed in `extraPipPackages` in
+`orchestration/airflow-values.yaml`.
+
+**Root cause**: The `extraPipPackages` key on the apache-airflow Helm chart is
+a no-op for the `apache/airflow:3.x` image — the entrypoint never reads it. The
+existing `cncf-kubernetes` provider only works because it's bundled in the base
+image by default.
+
+**Fix**: install at pod startup via `_PIP_ADDITIONAL_REQUIREMENTS` env var,
+which the apache/airflow entrypoint honors:
+```yaml
+env:
+  - name: _PIP_ADDITIONAL_REQUIREMENTS
+    value: "apache-airflow-providers-trino>=5.7.0"
+```
+Then `helm upgrade airflow ...`. Pods will pip-install on next start (adds
+~30s to startup). For production, build a custom image instead.
+
+---
+
+## Airflow: `TrinoOperator` removed in trino provider 6.x
+
+**Symptom**: `ModuleNotFoundError: No module named 'airflow.providers.trino.operators'`
+after installing `apache-airflow-providers-trino`. The package is present
+(`pip list | grep trino` shows it) but the `operators/` submodule doesn't
+exist.
+
+**Root cause**: Airflow 3 standardized SQL execution on
+`SQLExecuteQueryOperator` from `airflow.providers.common.sql`. The trino
+provider 6.x dropped its dedicated `TrinoOperator` (only `TrinoHook`,
+`assets/`, and `transfers/` remain).
+
+**Fix**:
+```python
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+
+SQLExecuteQueryOperator(
+    task_id="...",
+    conn_id="trino_default",   # NOT trino_conn_id
+    sql=...,
+)
+```
+
+---
+
+## CloudBeaver: connections vanish after pod restart
+
+**Symptom**: Manually-added Trino / Hive connections in CloudBeaver disappear
+after the pod restarts (helm upgrade, eviction, etc.).
+
+**Root cause**: The workspace was on `emptyDir` in `cloudbeaver.yaml` —
+ephemeral, wiped on restart. Pre-seeding `data-sources.json` into
+`workspace/GlobalConfiguration/.dbeaver/` via an initContainer **does not
+work** — CloudBeaver Community ignores that path/format on first boot.
+
+**Fix**: back the workspace with a PVC. `query-engine/cloudbeaver.yaml` now
+mounts a 1Gi PVC at `/opt/cloudbeaver/workspace`. Add the two connections via
+the UI once; they persist across restarts. `strategy: Recreate` is required
+because the PVC is RWO.
 
 ---
 
