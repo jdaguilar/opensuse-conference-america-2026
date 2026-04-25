@@ -19,14 +19,26 @@ import pendulum
 import requests
 from airflow.exceptions import AirflowSkipException
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.sdk import dag, task
 
 AWS_CONN_ID = "ozone"
+TRINO_CONN_ID = "trino_default"
 RAW_BUCKET = "raw"
 ARTIFACTS_BUCKET = "artifacts"
 SPARK_IMAGE = "localhost:5000/spark_processing:latest"
 SPARK_NAMESPACE = "data-processing"
 SPARK_SCRIPT = f"s3a://{ARTIFACTS_BUCKET}/scripts/github_curation_hourly.py"
+
+# Registers any new partition directories in the ozone_hive.raw.gh_archive
+# external table (mode='ADD' only adds, never drops). Idempotent.
+SYNC_RAW_PARTITIONS_SQL = """
+CALL ozone_hive.system.sync_partition_metadata(
+  schema_name => 'raw',
+  table_name  => 'gh_archive',
+  mode        => 'ADD'
+)
+"""
 
 # S3A + Iceberg conf injected into every SparkApplication.
 # HiveCatalog (type=hive) — every write updates Hive Metastore directly so
@@ -231,8 +243,17 @@ def gharchive_hourly_pipeline():
             f"SparkApplication {app_name} did not finish within {timeout}s"
         )
 
+    sync_raw_partition = SQLExecuteQueryOperator(
+        task_id="sync_raw_partition",
+        conn_id=TRINO_CONN_ID,
+        sql=SYNC_RAW_PARTITIONS_SQL,
+    )
+
     job_params = get_target_hour()
     ingested = ingest_hour(job_params)
+    # After ingest: register the new partition in Trino (raw) and curate via
+    # Spark in parallel — they don't depend on each other.
+    ingested >> sync_raw_partition
     wait_for_spark_job(submit_spark_job(ingested))
 
 
